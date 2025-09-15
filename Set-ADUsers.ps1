@@ -1,3 +1,6 @@
+#prereqs
+#invoke-restmethod must work on host machine. test first.
+
 #Store creds in vault, json format; EXAMPLE
 #############
 #{
