@@ -1,3 +1,5 @@
+#Set-DNSRecords -RecordSet "Prod"
+
 function Set-DNSRecords {
     param (
         [Parameter(Mandatory)]
