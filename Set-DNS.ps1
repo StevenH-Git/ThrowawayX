@@ -1,14 +1,41 @@
 function Set-DNSRecords {
     param (
+        [Parameter(Mandatory)]
+        [ValidateSet("Prod", "Dev", "Test", "SiteA", "SiteB")]
+        [string]$RecordSet,
+
         [string]$DNSServer = 'localhost'
     )
 
-    # Define the list of desired DNS records here
-    $dnsRecords = @(
-        @{ RecordName = "web01"; IPAddress = "192.168.10.11"; ZoneName = "example.com" }
-        @{ RecordName = "db01";  IPAddress = "192.168.10.12"; ZoneName = "example.com" }
-        @{ RecordName = "mail";  IPAddress = "192.168.10.13"; ZoneName = "example.com" }
-    )
+    # Define multiple record sets
+    $recordSets = @{
+        "Prod" = @(
+            @{ RecordName = "prod-web01"; IPAddress = "10.0.0.10"; ZoneName = "prod.example.com" }
+            @{ RecordName = "prod-db01";  IPAddress = "10.0.0.11"; ZoneName = "prod.example.com" }
+        )
+        "Dev" = @(
+            @{ RecordName = "dev-web01"; IPAddress = "10.0.1.10"; ZoneName = "dev.example.com" }
+            @{ RecordName = "dev-db01";  IPAddress = "10.0.1.11"; ZoneName = "dev.example.com" }
+        )
+        "Test" = @(
+            @{ RecordName = "test-web01"; IPAddress = "10.0.2.10"; ZoneName = "test.example.com" }
+            @{ RecordName = "test-db01";  IPAddress = "10.0.2.11"; ZoneName = "test.example.com" }
+        )
+        "SiteA" = @(
+            @{ RecordName = "sitea-app01"; IPAddress = "192.168.1.100"; ZoneName = "sitea.local" }
+        )
+        "SiteB" = @(
+            @{ RecordName = "siteb-app01"; IPAddress = "192.168.2.100"; ZoneName = "siteb.local" }
+        )
+    }
+
+    # Retrieve the selected record set
+    $dnsRecords = $recordSets[$RecordSet]
+
+    if (-not $dnsRecords) {
+        Write-Error "No DNS records found for RecordSet '$RecordSet'."
+        return
+    }
 
     foreach ($entry in $dnsRecords) {
         $name = $entry.RecordName
@@ -43,7 +70,7 @@ function Set-DNSRecords {
             }
         }
         catch {
-            Write-Error "❌ Error processing $name"
+            Write-Error "❌ Error processing $name.$zone: $_"
         }
     }
 }
