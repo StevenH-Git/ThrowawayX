@@ -6,7 +6,7 @@ function Set-DNSRecords {
         [ValidateSet("Prod", "Dev", "Test", "SiteA", "SiteB")]
         [string]$RecordSet,
 
-        [string]$DNSServer = 'localhost'
+        [string]$DNSServer = 'localhost' #need to be able to point this to different DNSServers based on switch, something like Set-DNSRecords -DNSServer "Prod" -Recordset "ProdA"
     )
 
     # Define multiple record sets
