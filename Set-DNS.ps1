@@ -4,12 +4,22 @@ function Set-DNSRecords {
     param (
         [Parameter(Mandatory)]
         [ValidateSet("Prod", "Dev", "Test", "SiteA", "SiteB")]
-        [string]$RecordSet,
+        [string]$RecordSet
 
-        [string]$DNSServer = 'localhost' #need to be able to point this to different DNSServers based on switch, something like Set-DNSRecords -DNSServer "Prod" -Recordset "ProdA"
     )
 
-    # Define multiple record sets
+# DNS server mapping for each record set
+    $dnsServerMap = @{
+        "Prod"  = "dns-prod.example.com"
+        "Dev"   = "dns-dev.example.com"
+        "Test"  = "dns-test.example.com"
+        "SiteA" = "192.168.1.1"
+        "SiteB" = "192.168.2.1"
+    }
+
+    $DNSServer = $dnsServerMap[$RecordSet]
+
+# Define multiple record sets
     $recordSets = @{
         "Prod" = @(
             @{ RecordName = "prod-web01"; IPAddress = "10.0.0.10"; ZoneName = "prod.example.com" }
@@ -31,7 +41,7 @@ function Set-DNSRecords {
         )
     }
 
-    # Retrieve the selected record set
+# Retrieve the selected record set
     $dnsRecords = $recordSets[$RecordSet]
 
     if (-not $dnsRecords) {
@@ -72,7 +82,7 @@ function Set-DNSRecords {
             }
         }
         catch {
-            Write-Error "❌ Error processing $name.$zone: $_"
+            Write-Error "❌ Error processing $name"
         }
     }
 }
