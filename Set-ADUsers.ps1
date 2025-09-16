@@ -16,7 +16,7 @@
 #$vaultAddr = "https://vault.mycompany.com"
 #$vaultToken = "s.xxxxxxxx"  # Load securely in practice!
 
-#Ensure-ADUsers -UserSet "HR" -VaultAddress $vaultAddr -VaultToken $vaultToken
+#Set-ADUsers -UserSet "HR" -VaultAddress $vaultAddr -VaultToken $vaultToken
 ##############
 
 
@@ -43,7 +43,7 @@ function Get-VaultSecret {
     }
 }
 
-function Ensure-ADUsers {
+function Set-ADUsers {
     param (
         [Parameter(Mandatory)]
         [ValidateSet("HR", "IT", "Finance")]
@@ -90,8 +90,8 @@ function Ensure-ADUsers {
         }
 
         $sam = $vaultData.username
-        $pwdPlain = $vaultData.password
-        $pwd = ConvertTo-SecureString $pwdPlain -AsPlainText -Force
+        $passwPlain = $vaultData.password
+        $passw = ConvertTo-SecureString $passwPlain -AsPlainText -Force
 
         Write-Host "`n🔍 Checking AD user: $sam ($name)" -ForegroundColor White
 
@@ -121,7 +121,7 @@ function Ensure-ADUsers {
                 -Name $name `
                 -UserPrincipalName "$sam@example.com" `
                 -Path $ou `
-                -AccountPassword $pwd `
+                -AccountPassword $passw `
                 -Enabled $true `
                 -PasswordNeverExpires $true
 
