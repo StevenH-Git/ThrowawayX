@@ -1,21 +1,27 @@
 Add-Type -AssemblyName System.Windows.Forms #Menu_dep
 
+##################
+# = CMD SYNTAX = #
+##################
+
+#Set-DNSRecords -RecordSet "Prod"
+#Set-ADUsers -UserSet "HR" -VaultAddress $vaultAddr -VaultToken $vaultToken
+
+
 ###################
 # ===== DNS ===== #
 ###################
-
-#Set-DNSRecords -RecordSet "Prod"
 
 function Set-DNSRecords {
     param (
         [Parameter(Mandatory)]
         [ValidateSet("Prod", "Dev", "Test", "SiteA", "SiteB")]
-        [string]$RecordSet
+        [string]$DNSRecordSet
 
     )
 
 # DNS server mapping for each record set
-    $dnsServerMap = @{
+    $DNSServerMap = @{
         "Prod"  = "dns-prod.example.com"
         "Dev"   = "dns-dev.example.com"
         "Test"  = "dns-test.example.com"
@@ -23,10 +29,10 @@ function Set-DNSRecords {
         "SiteB" = "192.168.2.1"
     }
 
-    $DNSServer = $dnsServerMap[$RecordSet]
+    $DNSServer = $DNSServerMap[$DNSRecordSet]
 
 # Define multiple record sets
-    $recordSets = @{
+    $DNSRecordSets = @{
         "Prod" = @(
             @{ RecordName = "prod-web01"; IPAddress = "10.0.0.10"; ZoneName = "prod.example.com" }
             @{ RecordName = "prod-db01";  IPAddress = "10.0.0.11"; ZoneName = "prod.example.com" }
@@ -48,75 +54,57 @@ function Set-DNSRecords {
     }
 
 # Retrieve the selected record set
-    $dnsRecords = $recordSets[$RecordSet]
+    $DNSRecords = $DNSRecordSets[$DNSRecordSet]
 
-    if (-not $dnsRecords) {
-        Write-Error "No DNS records found for RecordSet '$RecordSet'."
+    if (-not $DNSRecords) {
+        Write-Error "No DNS records found for RecordSet '$DNSRecordSet'."
         return
     }
 
-    foreach ($entry in $dnsRecords) {
-        $name = $entry.RecordName
-        $ip = $entry.IPAddress
-        $zone = $entry.ZoneName
+    foreach ($DNSEntry in $DNSRecords) {
+        $DNSRecordName = $DNSEntry.RecordName
+        $IPv4 = $DNSEntry.IPAddress
+        $DNSZone = $DNSEntry.ZoneName
 
         try {
-            Write-Host "`n🔍 Checking: $name.$zone => $ip" -ForegroundColor White
+            Write-Host "`n🔍 Checking: $DNSRecordName.$DNSZone => $IPv4" -ForegroundColor White
 
-            $existingRecords = Get-DnsServerResourceRecord -Name $name -ZoneName $zone -ComputerName $DNSServer -ErrorAction SilentlyContinue |
+            $DNSExistingRecords = Get-DnsServerResourceRecord -Name $DNSRecordName -ZoneName $DNSZone -ComputerName $DNSServer -ErrorAction SilentlyContinue |
                 Where-Object { $_.RecordType -eq 'A' }
 
-            $matchFound = $false
+            $DNSMatchFound = $false
 
-            foreach ($record in $existingRecords) {
-                $currentIP = $record.RecordData.IPv4Address.IPAddressToString
+            foreach ($DNSRecord in $DNSExistingRecords) {
+                $CurrentIPv4 = $DNSRecord.RecordData.IPv4Address.IPAddressToString
 
-                if ($currentIP -eq $ip) {
-                    Write-Host "✔ A record for '$name.$zone' with IP '$ip' already exists." -ForegroundColor Green
-                    $matchFound = $true
+                if ($CurrentIPv4 -eq $IPv4) {
+                    Write-Host "✔ A record for '$DNSRecordName.$DNSZone' with IP '$IPv4' already exists." -ForegroundColor Green
+                    $DNSMatchFound = $true
                 }
                 else {
-                    Write-Host "⚠ Found '$name.$zone' with incorrect IP '$currentIP'. Deleting..." -ForegroundColor Yellow
-                    Remove-DnsServerResourceRecord -ZoneName $zone -RRType "A" -Name $name -RecordData $currentIP -ComputerName $DNSServer -Force
+                    Write-Host "⚠ Found '$DNSRecordName.$DNSZone' with incorrect IP '$CurrentIPv4'. Deleting..." -ForegroundColor Yellow
+                    Remove-DnsServerResourceRecord -ZoneName $DNSZone -RRType "A" -Name $DNSRecordName -RecordData $CurrentIPv4 -ComputerName $DNSServer -Force
                 }
             }
 
-            if (-not $matchFound) {
-                Write-Host "➕ Creating A record '$name.$zone' with IP '$ip'..." -ForegroundColor Cyan
-                Add-DnsServerResourceRecordA -Name $name -ZoneName $zone -IPv4Address $ip -ComputerName $DNSServer
+            if (-not $DNSMatchFound) {
+                Write-Host "➕ Creating A record '$DNSRecordName.$DNSZone' with IP '$IPv4'..." -ForegroundColor Cyan
+                Add-DnsServerResourceRecordA -Name $DNSRecordName -ZoneName $DNSZone -IPv4Address $IPv4 -ComputerName $DNSServer
                 Write-Host "✅ Record created." -ForegroundColor Green
             }
         }
         catch {
-            Write-Error "❌ Error processing $name"
+            Write-Error "❌ Error processing $DNSRecordName"
         }
     }
 }
+
 ###################
 #== AD Accounts ==#
 ###################
 
-#prereqs
-#invoke-restmethod must work on host machine. test first.
-
-#Store creds in vault, json format; EXAMPLE
-#############
-#{
-#  "data": {
-#    "username": "asmith",
-#    "password": "P@ssw0rd123"
-#  }
-#}
-##############
-#Command
-############## 
-#Still need a good way to deal with token security. Maybe go cert based and service account?
 #$vaultAddr = "https://vault.mycompany.com"
 #$vaultToken = "s.xxxxxxxx"  # Load securely in practice!
-
-#Set-ADUsers -UserSet "HR" -VaultAddress $vaultAddr -VaultToken $vaultToken
-##############
-
 
 function Get-VaultSecret {
     param (
@@ -125,19 +113,19 @@ function Get-VaultSecret {
         [Parameter(Mandatory)][string]$SecretPath
     )
 
-    $headers = @{
+    $Headers = @{
         "X-Vault-Token" = $VaultToken
     }
 
-    $url = "$VaultAddress/v1/$SecretPath"
+    $URL = "$VaultAddress/v1/$SecretPath"
 
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Get -Headers $headers
-        return $response.data.data  # For KV v2, OpenBAO may not use this. Need to verify.
+        $Response = Invoke-RestMethod -Uri $URL -Method Get -Headers $Headers
+        return $Response.data.data  # For KV v2, OpenBAO may not use this. Need to verify.
     }
     catch {
         Write-Error "❌ Failed to get secret from Vault: $_"
-        return $null
+        return $NULL
     }
 }
 
@@ -145,7 +133,7 @@ function Set-ADUsers {
     param (
         [Parameter(Mandatory)]
         [ValidateSet("HR", "IT", "Finance")]
-        [string]$UserSet,
+        [string]$ADUserSet,
 
         [Parameter(Mandatory)]
         [string]$VaultAddress,
@@ -155,7 +143,7 @@ function Set-ADUsers {
     )
 
     # Define user structure (username and OU only)
-    $userSets = @{
+    $ADUserSets = @{
         "HR" = @(
             @{ VaultKey = "secret/data/ad_users/hr/asmith"; OU = "OU=HR,DC=example,DC=com"; Name = "Alice Smith" },
             @{ VaultKey = "secret/data/ad_users/hr/bjones"; OU = "OU=HR,DC=example,DC=com"; Name = "Bob Jones" }
@@ -168,65 +156,65 @@ function Set-ADUsers {
         )
     }
 
-    $users = $userSets[$UserSet]
+    $ADUsers = $ADUserSets[$ADUserSet]
 
-    if (-not $users) {
-        Write-Error "No user set found for '$UserSet'"
+    if (-not $ADUsers) {
+        Write-Error "No user set found for '$ADUserSet'"
         return
     }
 
-    foreach ($user in $users) {
-        $vaultKey = $user.VaultKey
-        $name = $user.Name
-        $ou = $user.OU
+    foreach ($ADUser in $ADUsers) {
+        $VaultKey = $ADUser.VaultKey
+        $ADUserName = $ADUser.Name
+        $OU = $ADUser.OU
 
-        $vaultData = Get-VaultSecret -VaultAddress $VaultAddress -VaultToken $VaultToken -SecretPath $vaultKey
+        $VaultData = Get-VaultSecret -VaultAddress $VaultAddress -VaultToken $VaultToken -SecretPath $VaultKey
 
-        if (-not $vaultData) {
-            Write-Warning "⚠️ Skipping user at $vaultKey due to missing Vault data."
+        if (-not $VaultData) {
+            Write-Warning "⚠️ Skipping user at $VaultKey due to missing Vault data."
             continue
         }
 
-        $sam = $vaultData.username
-        $passwPlain = $vaultData.password
-        $passw = ConvertTo-SecureString $passwPlain -AsPlainText -Force
+        $SAM = $VaultData.username
+        $PasswPlain = $VaultData.password
+        $Passw = ConvertTo-SecureString $PasswPlain -AsPlainText -Force
 
-        Write-Host "`n🔍 Checking AD user: $sam ($name)" -ForegroundColor White
+        Write-Host "`n🔍 Checking AD user: $SAM ($ADUserName)" -ForegroundColor White
 
-        $existing = Get-ADUser -Filter { SamAccountName -eq $sam } -Properties DistinguishedName -ErrorAction SilentlyContinue
+        $ExistingUser = Get-ADUser -Filter { SamAccountName -eq $SAM } -Properties DistinguishedName -ErrorAction SilentlyContinue
 
-        if ($existing) {
-            $correctOU = ($existing.DistinguishedName -like "*$ou*")
+        if ($ExistingUser) {
+            $CorrectOU = ($ExistingUser.DistinguishedName -like "*$OU*")
 
-            if ($correctOU) {
-                Write-Host "✔ User '$sam' exists in correct OU." -ForegroundColor Green
+            if ($CorrectOU) {
+                Write-Host "✔ User '$SAM' exists in correct OU." -ForegroundColor Green
                 continue
             }
             else {
-                Write-Host "⚠ User '$sam' exists but is in the wrong OU. Deleting..." -ForegroundColor Yellow
-                Remove-ADUser -Identity $existing.DistinguishedName -Confirm:$false
+                Write-Host "⚠ User '$SAM' exists but is in the wrong OU. Deleting..." -ForegroundColor Yellow
+                Remove-ADUser -Identity $ExistingUser.DistinguishedName -Confirm:$false
             }
         }
         else {
-            Write-Host "❌ User '$sam' not found." -ForegroundColor DarkYellow
+            Write-Host "❌ User '$SAM' not found." -ForegroundColor DarkYellow
         }
 
         # Create user
         try {
-            Write-Host "➕ Creating user '$sam' in '$ou'" -ForegroundColor Cyan
+            Write-Host "➕ Creating user '$SAM' in '$OU'" -ForegroundColor Cyan
             New-ADUser `
-                -SamAccountName $sam `
-                -Name $name `
-                -UserPrincipalName "$sam@example.com" `
-                -Path $ou `
-                -AccountPassword $passw `
+                -SamAccountName $SAM `
+                -Name $ADUserName `
+                -UserPrincipalName "$SAM@example.com" ` #Here#ADdomain var needed
+                -Path $OU `
+                -AccountPassword $Passw `
                 -Enabled $true `
                 -PasswordNeverExpires $true
 
-            Write-Host "✅ User '$sam' created." -ForegroundColor Green
+            Write-Host "✅ User '$SAM' created." -ForegroundColor Green
         }
         catch {
-            Write-Error "❌ Failed to create user '$sam': $_"
+            Write-Error "❌ Failed to create user '$SAM': $_"
         }
     }
 }
@@ -319,7 +307,6 @@ if (-not $MainSelection) { exit
 #Triggers if users cancels, need to write an if elseif for this;   [System.Windows.Forms.MessageBox]::Show("You must select a target.", "NO TARGET SELECTED...", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 }
 
-
 # Step 2: Show multi-select sub-options
 $SubOptions = $Menu[$MainSelection].Keys
 $SubSelection = Show-MultiSelectMenu -Title "Select Action(s) for $MainSelection" -Options $SubOptions
@@ -334,3 +321,19 @@ foreach ($Choice in $SubSelection) {
     $ScriptBlock = $Menu[$MainSelection][$Choice]
     & $ScriptBlock
 }
+
+
+
+
+# NOTES #
+
+#Store creds in vault, json format; EXAMPLE
+
+#############
+#{
+#  "data": {
+#    "username": "asmith",
+#    "password": "P@ssw0rd123"
+#  }
+#}
+##############
