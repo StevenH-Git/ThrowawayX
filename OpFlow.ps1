@@ -26,7 +26,7 @@ function Send-Error {
     $LogFilePath = "C:\logging\OpsFlow_ERR_$DateString.txt"
     $FormattedMessageTime | Out-File -Append $LogFilePath
 }
-#This causes more issues than it fixes in other foreach loops that need logging.
+#This causes more issues than it fixes in other foreach loops that need logging. Just call the function when you want and clear out the err.
 #foreach ($err in $Error) {
 #    $ErrorMessage = $err.Exception.Message
 #    Send-Error $ErrorMessage
