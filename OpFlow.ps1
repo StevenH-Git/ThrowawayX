@@ -7,6 +7,30 @@ Add-Type -AssemblyName System.Windows.Forms #Menu_dep
 #Set-DNSRecords -RecordSet "Prod"
 #Set-ADUsers -UserSet "HR" -VaultAddress $vaultAddr -VaultToken $vaultToken
 
+###################
+# === General === #
+###################
+
+# Error Logging
+
+$Error.Clear()
+
+function Send-Error {
+    param (
+        [string]$ErrorMessage
+    )
+
+    $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $FormattedMessageTime = "$TimeStamp - ERROR: $ErrorMessage"
+    $DateString = Get-Date -Format "yyyy-MM-dd"
+    $LogFilePath = "C:\logging\OpsFlow_ERR_$DateString.txt"
+    $FormattedMessageTime | Out-File -Append $LogFilePath
+}
+#This causes more issues than it fixes in other foreach loops that need logging.
+#foreach ($err in $Error) {
+#    $ErrorMessage = $err.Exception.Message
+#    Send-Error $ErrorMessage
+#}
 
 ###################
 # ===== DNS ===== #
@@ -57,7 +81,9 @@ function Set-DNSRecords {
     $DNSRecords = $DNSRecordSets[$DNSRecordSet]
 
     if (-not $DNSRecords) {
+        $Error.Clear()
         Write-Error "No DNS records found for RecordSet '$DNSRecordSet'."
+        Send-Error
         return
     }
 
@@ -94,7 +120,7 @@ function Set-DNSRecords {
             }
         }
         catch {
-            Write-Error "❌ Error processing $DNSRecordName"
+            Write-Error "❌ Error processing $DNSRecordName in $DNSZone at $IPv4"
         }
     }
 }
@@ -104,7 +130,7 @@ function Set-DNSRecords {
 ###################
 
 #$vaultAddr = "https://vault.mycompany.com"
-#$vaultToken = "s.xxxxxxxx"  # Load securely in practice!
+#$vaultToken = "s.xxxxxxxx"
 
 function Get-VaultSecret {
     param (
@@ -159,7 +185,8 @@ function Set-ADUsers {
     $ADUsers = $ADUserSets[$ADUserSet]
 
     if (-not $ADUsers) {
-        Write-Error "No user set found for '$ADUserSet'"
+        $Error.Clear()
+        Write-Error "No user vault found for $ADUserSet at $VaultAddress"
         return
     }
 
@@ -214,11 +241,14 @@ function Set-ADUsers {
             Write-Host "✅ User '$SAM' created." -ForegroundColor Green
         }
         catch {
-            Write-Error "❌ Failed to create user '$SAM': $_"
+            Write-Host "❌ Failed to create user '$SAM': $_ [Logged]"
+            Write-Error "Failed to create user '$SAM': $_"
+            Send-Error
+            $Error.Clear()
         }
     }
 }
-
+$Error.Clear()
 
 ####################
 #====== Menu ======#
@@ -318,6 +348,7 @@ if ($SubSelection.Count -eq 0)  {
 # Step 3: Run selected scripts
 foreach ($Choice in $SubSelection) {
     Write-Host "`n--- Running '$Choice' from '$MainSelection' ---"
+    Write-Output "Running '$Choice' from '$MainSelection'"
     $ScriptBlock = $Menu[$MainSelection][$Choice]
     & $ScriptBlock
 }
