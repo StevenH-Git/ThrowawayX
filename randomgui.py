@@ -21,14 +21,14 @@ class ButtonApp:
 
         self.unlock_all = unlock_all
 
-        self.fruits = [
+        self.fruits = [ # Sets the button order. (Column 1)
             "apple", "banana", "cherry", "date", "elderberry",
             "fig", "grape", "honeydew", "kiwi", "lemon",
             "mango", "nectarine", "orange", "papaya", "quince",
             "raspberry", "strawberry", "tangerine", "ugli", "watermelon"
         ]
 
-        self.scripts = {
+        self.scripts = { # Sets the button function. ### Sudo/Root is done later.
             "apple": "/scripts/apple.sh",
             "banana": "/scripts/banana.sh",
             "cherry": "/scripts/cherry.sh",
@@ -51,7 +51,7 @@ class ButtonApp:
             "watermelon": "/scripts/water.sh",
         }
 
-        self.descriptions = {
+        self.descriptions = { # Sets the description next the to button.
             "apple": "Runs apple script",
             "banana": "Runs banana script",
             "cherry": "Needs sudo privileges",
@@ -97,12 +97,12 @@ class ButtonApp:
             )
             btn.grid(row=index, column=0, padx=10, pady=5, sticky="w")
 
-            # Status label first (column 1)
+            # Status label first (Column 2)
             status_label = tk.Label(self.root, text="Preparing...", fg="gray")
             status_label.grid(row=index, column=1, padx=(10, 10), sticky="w")
             self.status_labels.append(status_label)
 
-            # Description label second (column 2)
+            # Description label second (column 3)
             desc = self.descriptions.get(fruit, "")
             desc_label = tk.Label(self.root, text=desc, anchor="w", justify="left")
             desc_label.grid(row=index, column=2, padx=(5, 10), sticky="w")
@@ -208,7 +208,7 @@ class ButtonApp:
         self.anim_indices[index] += 1
         self.root.after(100, lambda: self.animate_status(index))  # 100ms interval = 0.1 Seconds
 
-
+# Safe to Import/rEXE
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fruit Script Launcher GUI")
     parser.add_argument('--unlock-all', action='store_true', help="Unlock (enable) all buttons on launch")
