@@ -1,14 +1,15 @@
-# -*- coding: utf-8 -*-
+from __future__ import print_function  # For future-proofing, optional here
+
+# tkinter import compatible with Python 2 and 3
 try:
-    import Tkinter as tk  # Python 2
+    import tkinter as tk
 except ImportError:
-    import tkinter as tk  # Python 3
+    import Tkinter as tk
 
 import subprocess as sub
 import os
 import threading
 import argparse
-import sys
 
 class ButtonApp:
     def __init__(self, root, unlock_all=False):
@@ -70,15 +71,27 @@ class ButtonApp:
             "watermelon": "Runs watermelon script",
         }
 
+        self.troubleshooting = {
+            "cherry": "This script requires sudo. Ensure you have permission and the password prompt works in GUI mode.",
+            "fig": "This script also runs with sudo. Check for missing dependencies.",
+            "orange": "This runs as root. Make sure root has permission to run bash scripts in /scripts.",
+            "kiwi": "Kiwi script may depend on external data in /tmp. Ensure it's available.",
+            "default": "Check if the script exists, is executable, and works when run manually from a terminal.",
+        }
+
         self.button_list = []
         self.status_labels = []
         self.result_text = tk.StringVar()
+        self.troubleshoot_text = tk.StringVar()
 
         self.anim_indices = [0] * len(self.fruits)
         self.anim_running = [False] * len(self.fruits)
 
         self.result_label = tk.Label(self.root, textvariable=self.result_text, anchor="w", justify="left")
         self.result_label.grid(row=len(self.fruits) + 1, column=0, columnspan=3, padx=10, pady=(20, 0), sticky="w")
+
+        self.troubleshoot_label = tk.Label(self.root, textvariable=self.troubleshoot_text, anchor="w", justify="left", fg="darkred", wraplength=750)
+        self.troubleshoot_label.grid(row=len(self.fruits) + 2, column=0, columnspan=3, padx=10, pady=(10, 0), sticky="w")
 
         self.create_buttons()
 
@@ -125,7 +138,7 @@ class ButtonApp:
 
         if not os.path.exists(script_path):
             self.stop_animation(button_index)
-            self.update_result("ERROR: Script not found: {}".format(script_path))
+            self.update_result(u"❌ Script not found: {}".format(script_path), show_troubleshooting=True, fruit_name=fruit_name)
             self.update_status(button_index, "Failed: Not Found", "red")
             self.button_list[button_index].config(state=tk.NORMAL)
             return
@@ -144,9 +157,18 @@ class ButtonApp:
                 stderr=sub.PIPE
             )
             stdout, stderr = process.communicate()
+
+            # Decode outputs for Python 3, ignore errors for Python 2
+            try:
+                stdout = stdout.decode()
+                stderr = stderr.decode()
+            except AttributeError:
+                # Python 2 returns str, so just pass
+                pass
+
         except Exception as e:
             self.stop_animation(button_index)
-            self.update_result("ERROR: Failed to run {}: {}".format(fruit_name, str(e)))
+            self.update_result(u"⚠️ Failed to run {}: {}".format(fruit_name, str(e)), show_troubleshooting=True, fruit_name=fruit_name)
             self.update_status(button_index, "Failed", "red")
             self.button_list[button_index].config(state=tk.NORMAL)
             return
@@ -154,7 +176,7 @@ class ButtonApp:
         self.stop_animation(button_index)
 
         if process.returncode == 0:
-            self.update_result("SUCCESS: {} executed successfully.".format(fruit_name))
+            self.update_result(u"✅ {} executed successfully.".format(fruit_name), show_troubleshooting=False)
             self.update_status(button_index, "Completed", "green")
             if not self.unlock_all:
                 if button_index + 1 < len(self.button_list):
@@ -162,11 +184,8 @@ class ButtonApp:
                     self.button_list[next_index].config(state=tk.NORMAL)
                     self.update_status(next_index, "Ready", "green")
         else:
-            if sys.version_info[0] < 3:
-                error_msg = stderr.strip()
-            else:
-                error_msg = stderr.decode().strip()
-            self.update_result("ERROR in {}:\n{}".format(fruit_name, error_msg))
+            error_msg = stderr.strip()
+            self.update_result(u"❌ Error in {}:\n{}".format(fruit_name, error_msg), show_troubleshooting=True, fruit_name=fruit_name)
             self.update_status(button_index, "Failed", "red")
             self.button_list[button_index].config(state=tk.NORMAL)
 
@@ -175,9 +194,14 @@ class ButtonApp:
             self.status_labels[index].config(text=text, fg=color)
         self.root.after(0, callback)
 
-    def update_result(self, message):
+    def update_result(self, message, show_troubleshooting=False, fruit_name=None):
         def callback():
             self.result_text.set(message)
+            if show_troubleshooting and fruit_name:
+                tip = self.troubleshooting.get(fruit_name, self.troubleshooting["default"])
+                self.troubleshoot_text.set("Troubleshooting Tips:\n" + tip)
+            else:
+                self.troubleshoot_text.set("")
         self.root.after(0, callback)
 
     def start_animation(self, index):
