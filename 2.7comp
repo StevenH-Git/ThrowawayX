@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-import Tkinter as tk
+try:
+    import Tkinter as tk  # Python 2
+except ImportError:
+    import tkinter as tk  # Python 3
+
 import subprocess as sub
 import os
 import threading
